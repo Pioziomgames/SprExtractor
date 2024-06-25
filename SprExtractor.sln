@@ -5,6 +5,8 @@ VisualStudioVersion = 17.5.33627.172
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SprExtractor", "SprExtractor\SprExtractor.csproj", "{BD4B9836-1298-4782-873B-C40B09DCB27F}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GJ.IO", "GJ.IO\GJ.IO\GJ.IO.csproj", "{BAD75B59-DCE1-4C64-9BD5-7D29B2305326}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{BD4B9836-1298-4782-873B-C40B09DCB27F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BD4B9836-1298-4782-873B-C40B09DCB27F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BD4B9836-1298-4782-873B-C40B09DCB27F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BAD75B59-DCE1-4C64-9BD5-7D29B2305326}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BAD75B59-DCE1-4C64-9BD5-7D29B2305326}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BAD75B59-DCE1-4C64-9BD5-7D29B2305326}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BAD75B59-DCE1-4C64-9BD5-7D29B2305326}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
