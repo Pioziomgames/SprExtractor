@@ -9,7 +9,6 @@ namespace SprExtractor
     {
         static void Main(string[] args)
         {
-            args = new string[] { @"D:\Downloads\sprTest\i_battle_icon01.spr" };
             if (args.Length == 0)
             {
                 Console.WriteLine("SprExtractor by Pioziomgames");
