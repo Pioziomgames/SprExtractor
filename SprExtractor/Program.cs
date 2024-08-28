@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using GJ.IO;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using TmxLib;
@@ -11,10 +12,13 @@ namespace SprExtractor
         {
             if (args.Length == 0)
             {
-                Console.WriteLine("SprExtractor by Pioziomgames");
+                Console.WriteLine("SprExtractor 1.5 by Pioziomgames");
                 Console.WriteLine("A program for quickly extracting all sprites as seperate images from a persona 3/4 spr file");
                 Console.WriteLine("\nUsage:");
+                Console.WriteLine("\nExtract sprites as seperate images:");
                 Console.WriteLine("\tSprExtractor.exe pathToFile.spr (optional)Directory/to/extract/to");
+                Console.WriteLine("\nExtract sprites bounds and base textures:");
+                Console.WriteLine("\tSprExtractor.exe pathToFile.spr -b (optional)Directory/to/extract/to");
                 Console.WriteLine("\n\nPress any key to exit");
                 Console.ReadKey();
                 return;
@@ -26,10 +30,16 @@ namespace SprExtractor
                 Console.ReadKey();
                 return;
             }
-            string extractDir;
-            if (args.Length > 1)
-                extractDir = args[1];
-            else
+            bool bounds = false;
+            string extractDir = string.Empty;
+            for (int i = 1; i < args.Length; i++)
+            {
+                if (args[i].ToLower() == "-b")
+                    bounds = true;
+                else
+                    extractDir = args[i];
+            }
+            if (extractDir == string.Empty)
             {
                 string? fileDir = Path.GetDirectoryName(args[0]);
                 if (fileDir == null)
@@ -38,54 +48,119 @@ namespace SprExtractor
             }
 
             SprFile spr = new SprFile(args[0]);
-            Color[][] PixelData = new Color[spr.Textures.Count][];
-            //The textures are probably indexed so it's better to unindex them once now
-            //instead of doing it 40 times later
-            for (int i = 0; i < spr.Textures.Count; i++)
-                PixelData[i] = spr.Textures[i].GetPixelData();
-
+            
             if (!Directory.Exists(extractDir))
                 Directory.CreateDirectory(extractDir);
 
-            int digits = spr.Sprites.Count.ToString().Length; //Needed for making a nice looking file name
 
-            Parallel.For(0, spr.Sprites.Count, i => //Use parallel processing because why not go faster if you can
+            if (!bounds)
             {
-                if (spr.Sprites[i].Size.X > 0 && spr.Sprites[i].Size.Y > 0)
+                Color[][] PixelData = new Color[spr.Textures.Count][];
+                //The textures are probably indexed so it's better to unindex them once now
+                //instead of doing it 40 times later
+
+                for (int i = 0; i < spr.Textures.Count; i++)
+                    PixelData[i] = spr.Textures[i].GetPixelData();
+
+                int digits = spr.Sprites.Count.ToString().Length; //Needed for making a nice looking file name
+
+                Parallel.For(0, spr.Sprites.Count, i => //Use parallel processing because why not go faster if you can
                 {
-                    //Calculate the texture holding just the current sprite data
-                    Color[] sprite = new Color[spr.Sprites[i].Size.X * spr.Sprites[i].Size.Y];
-                    int ogWidth = spr.Textures[spr.Sprites[i].TextureIndex].GetWidth();
-                    for (int y = 0; y < spr.Sprites[i].Size.Y; y++)
+                    if (spr.Sprites[i].Size.X > 0 && spr.Sprites[i].Size.Y > 0)
                     {
-                        for (int x = 0; x < spr.Sprites[i].Size.X; x++)
+                        //Calculate the texture holding just the current sprite data
+                        Color[] sprite = new Color[spr.Sprites[i].Size.X * spr.Sprites[i].Size.Y];
+                        int ogWidth = spr.Textures[spr.Sprites[i].TextureIndex].GetWidth();
+                        for (int y = 0; y < spr.Sprites[i].Size.Y; y++)
                         {
-                            int originalIndex = (spr.Sprites[i].Position.Y + y) * ogWidth + (spr.Sprites[i].Position.X + x);
-                            int spriteIndex = y * spr.Sprites[i].Size.X + x;
-                            sprite[spriteIndex] = PixelData[spr.Sprites[i].TextureIndex][originalIndex];
+                            for (int x = 0; x < spr.Sprites[i].Size.X; x++)
+                            {
+                                int originalIndex = (spr.Sprites[i].Position.Y + y) * ogWidth + (spr.Sprites[i].Position.X + x);
+                                int spriteIndex = y * spr.Sprites[i].Size.X + x;
+                                sprite[spriteIndex] = PixelData[spr.Sprites[i].TextureIndex][originalIndex];
+                            }
                         }
+                        //Transfer the raw pixel data into a bitmap object
+                        Bitmap image = new(spr.Sprites[i].Size.X, spr.Sprites[i].Size.Y, PixelFormat.Format32bppArgb);
+                        BitmapData data = image.LockBits(new Rectangle(0, 0, image.Width, image.Height), ImageLockMode.WriteOnly, image.PixelFormat);
+                        byte[] pixels = new byte[sprite.Length * 4];
+                        for (int j = 0; j < sprite.Length; j++)
+                        {
+                            Color color = sprite[j];
+                            int offset = j * 4;
+                            pixels[offset] = color.B;
+                            pixels[offset + 1] = color.G;
+                            pixels[offset + 2] = color.R;
+                            pixels[offset + 3] = color.A;
+                        }
+                        Marshal.Copy(pixels, 0, data.Scan0, pixels.Length);
+                        image.UnlockBits(data);
+                        //Save it as a png
+                        image.Save(Path.Combine(extractDir, $"Sprite" + i.ToString("D" + digits) + ".png"), ImageFormat.Png);
                     }
-                    //Transfer the raw pixel data into a bitmap object
-                    Bitmap image = new(spr.Sprites[i].Size.X, spr.Sprites[i].Size.Y, PixelFormat.Format32bppArgb);
-                    BitmapData data = image.LockBits(new Rectangle(0, 0, image.Width, image.Height), ImageLockMode.WriteOnly, image.PixelFormat);
-                    byte[] pixels = new byte[sprite.Length * 4];
-                    for (int j = 0; j < sprite.Length; j++)
+                    else //Dummy sprite
+                        File.Create(Path.Combine(extractDir, $"Sprite" + i.ToString("D" + digits) + ".dummy"));
+                });
+            }
+            else
+            {
+                //Discard unused sprites
+                List<SprSprite> usedSprites = spr.Sprites.Where(x => x.Size.X > 0 && x.Size.Y > 0).ToList();
+
+                Parallel.For(0, spr.Textures.Count, i =>
+                {
+                    //Find sprites that use this texture
+                    List<SprSprite> currentSprites = spr.Sprites.Where(x => x.TextureIndex == i).ToList();
+
+                    //Get the name of the texture
+                    string textureName = spr.Textures[i].Picture.Header.UserComment;
+
+                    //Save the texture as png
+                    Bitmap currentTexture = BitMapMethods.GetTmxBitmap(spr.Textures[i]);
+                    currentTexture.Save(Path.Combine(extractDir, textureName + ".png"), ImageFormat.Png);
+
+                    //Create a texture that will hold the bounds
+                    int width = currentTexture.Width;
+                    int height = currentTexture.Height;
+                    Bitmap image = new(width, height, PixelFormat.Format32bppArgb);
+                    BitmapData data = image.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.WriteOnly, image.PixelFormat);
+                    byte[] pixels = new byte[width * height * 4];
+
+                    void SetPixel(int x, int y, Color color)
                     {
-                        Color color = sprite[j];
-                        int offset = j * 4;
-                        pixels[offset] = color.B;
-                        pixels[offset + 1] = color.G;
-                        pixels[offset + 2] = color.R;
-                        pixels[offset + 3] = color.A;
+                        int index = (y * width + x) * 4;
+                        pixels[index] = color.B;
+                        pixels[index + 1] = color.G;
+                        pixels[index + 2] = color.R;
+                        pixels[index + 3] = color.A;
+                    }
+
+                    //Draw sprite bounds
+                    for (int j = 0; j < currentSprites.Count; j++)
+                    {
+                        int x = currentSprites[j].Position.X;
+                        int y = currentSprites[j].Position.Y;
+                        int xs = currentSprites[j].Size.X;
+                        int ys = currentSprites[j].Size.Y;
+                        //Top
+                        for (int k = x; k < x + xs; k++)
+                            SetPixel(k, y, Color.Red);
+                        //Bottom
+                        for (int k = x; k < x + xs; k++)
+                            SetPixel(k, y + ys - 1, Color.Red);
+                        //Left
+                        for (int k = y; k < y + ys; k++)
+                            SetPixel(x, k, Color.Red);
+                        //Right
+                        for (int k = y; k < y + ys; k++)
+                            SetPixel(x + xs - 1, k, Color.Red);
                     }
                     Marshal.Copy(pixels, 0, data.Scan0, pixels.Length);
                     image.UnlockBits(data);
-                    //Save it as a png
-                    image.Save(Path.Combine(extractDir, $"Sprite" + i.ToString("D" + digits) + ".png"), ImageFormat.Png);
-                }
-                else //Dummy sprite
-                    File.Create(Path.Combine(extractDir, $"Sprite" + i.ToString("D" + digits) + ".dummy"));
-            });
+                    //save the result as a png
+                    image.Save(Path.Combine(extractDir, textureName + "_bounds.png"), ImageFormat.Png);
+                });
+            }
         }
     }
 
@@ -171,10 +246,10 @@ namespace SprExtractor
                 colors[2] = Color.FromArgb(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), reader.ReadByte());
                 colors[3] = Color.FromArgb(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), reader.ReadByte());
 
-                x1 += XOffset;
-                x2 += XOffset;
-                y1 += YOffset;
-                y2 += YOffset;
+                //x1 += XOffset;
+                //x2 += XOffset;
+                //y1 += YOffset;
+                //y2 += YOffset;
 
                 int width = x2 - x1;
                 int height = y2 - y1;
